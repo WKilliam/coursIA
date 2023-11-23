@@ -7,16 +7,16 @@ from sklearn.ensemble import RandomForestClassifier
 app = FastAPI()
 
 class InputData(BaseModel):
-    Category: int
+    Hour : int
     DayOfWeek: int
     Dates: int
     X: float
     Y: float
 
-# Chargez le dataset d'entraînement initial (loan_data.csv)
-data = pd.read_csv('loan_data.csv')
+# Chargez le dataset d'entraînement initial (train.csv)
+data = pd.read_csv('\Api\data\sf-crime\train.csv')
 X_train, X_test, y_train, y_test = train_test_split(
-    data[["Category", "DayOfWeek", "Dates", "X", "Y"]],
+    data[["Hour", "DayOfWeek", "Dates", "X", "Y"]],
     test_size=0.2,
     random_state=42
 )
@@ -39,7 +39,7 @@ async def predict_model(name: str, input_data: InputData):
             loaded_model = pickle.load(file)
 
         input_values = [
-            input_data.Category, input_data.DayOfWeek, input_data.Dates,
+            input_data.Hour, input_data.DayOfWeek, input_data.Dates,
             input_data.X, input_data.Y
         ]
         prediction = loaded_model.predict([input_values])[0]
