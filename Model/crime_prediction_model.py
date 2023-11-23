@@ -3,15 +3,14 @@ from keras.src.layers import Dense
 from keras.src.metrics import RootMeanSquaredError
 from keras.src.models.cloning import Sequential
 from sklearn.model_selection import train_test_split
-#!pip install category-encoders
-#!pip install tensorflow
-#!pip install jupyter-tensorboard
+# !pip install category-encoders
+# !pip install tensorflow
+# !pip install jupyter-tensorboard
 from category_encoders import OrdinalEncoder
 from sklearn.preprocessing import StandardScaler
 import numpy as np
 from keras.utils import to_categorical
-
-
+from tensorflow.python.layers.core import Dropout
 
 data = pd.read_csv('sample_data/train.csv')
 columns_deleted = ['Descript', 'Resolution', 'Address', 'PdDistrict']
@@ -26,23 +25,26 @@ data = data[~((data['X'] == x_a_supprimer) & (data['Y'] == y_a_supprimer))]
 print(data['Category'].unique())
 # Créer un dictionnaire pour les nouvelles catégories
 new_categories = {
-    'Person Crimes': ['OTHER OFFENSES', 'ASSAULT', 'RUNAWAY', 'KIDNAPPING','SUICIDE'],
+    'Person Crimes': ['OTHER OFFENSES', 'ASSAULT', 'RUNAWAY', 'KIDNAPPING', 'SUICIDE'],
 
-    'Property Crimes': ['LARCENY/THEFT', 'VEHICLE THEFT', 'BURGLARY', 'STOLEN PROPERTY', 'RECOVERED VEHICLE', 'TRESPASS'],
+    'Property Crimes': ['LARCENY/THEFT', 'VEHICLE THEFT', 'BURGLARY', 'STOLEN PROPERTY', 'RECOVERED VEHICLE',
+                        'TRESPASS'],
 
-    'Sexual Crimes': ['PROSTITUTION', 'SEX OFFENSES FORCIBLE', 'SEX OFFENSES NON FORCIBLE','PORNOGRAPHY/OBSCENE MAT','SEX OFFENSES FORCIBLE', 'SEX OFFENSES NON FORCIBLE',],
+    'Sexual Crimes': ['PROSTITUTION', 'SEX OFFENSES FORCIBLE', 'SEX OFFENSES NON FORCIBLE', 'PORNOGRAPHY/OBSCENE MAT',
+                      'SEX OFFENSES FORCIBLE', 'SEX OFFENSES NON FORCIBLE', ],
 
-    'Financial Crimes': ['FRAUD', 'BRIBERY', 'EMBEZZLEMENT', 'BAD CHECKS','FORGERY/COUNTERFEITING','EXTORTION'],
+    'Financial Crimes': ['FRAUD', 'BRIBERY', 'EMBEZZLEMENT', 'BAD CHECKS', 'FORGERY/COUNTERFEITING', 'EXTORTION'],
 
-    'Depencense Crimes': ['DRUNKENNESS', 'LIQUOR LAWS', 'DRIVING UNDER THE INFLUENCE','DRUG/NARCOTIC', 'DRUNKENNESS', 'LIQUOR LAWS'],
+    'Depencense Crimes': ['DRUNKENNESS', 'LIQUOR LAWS', 'DRIVING UNDER THE INFLUENCE', 'DRUG/NARCOTIC', 'DRUNKENNESS',
+                          'LIQUOR LAWS'],
 
-    'Vehicle Crimes': ['DRIVING UNDER THE INFLUENCE', 'VEHICLE THEFT', 'RECOVERED VEHICLE','DISORDERLY CONDUCT'],
+    'Vehicle Crimes': ['DRIVING UNDER THE INFLUENCE', 'VEHICLE THEFT', 'RECOVERED VEHICLE', 'DISORDERLY CONDUCT'],
 
     'Family Crimes': ['FAMILY OFFENSES', 'MISSING PERSON', 'RUNAWAY', 'FAMILY OFFENSES', 'MISSING PERSON'],
 
-    'Society Crimes': ['VANDALISM',  'ROBBERY', 'WEAPON LAWS',  'ARSON','LOITERING',  'GAMBLING'],
+    'Society Crimes': ['VANDALISM', 'ROBBERY', 'WEAPON LAWS', 'ARSON', 'LOITERING', 'GAMBLING'],
 
-    'Miscellaneous':['SUSPICIOUS OCC', 'SECONDARY CODES', 'TREA','NON-CRIMINAL','WARRANTS']
+    'Miscellaneous': ['SUSPICIOUS OCC', 'SECONDARY CODES', 'TREA', 'NON-CRIMINAL', 'WARRANTS']
 }
 # Créer un mapping inverse pour les nouvelles catégories
 reverse_mapping = {val: key for key, values in new_categories.items() for val in values}
@@ -53,7 +55,6 @@ print(data.head())
 print(data['Category'].unique())
 # Organiser la dataframe en fonction de la nouvelle colonne "New_Category"
 data = data.sort_values('Category')
-
 
 # Compter le nombre d'éléments pour chaque catégorie
 counts_per_category = data['Category'].value_counts()
@@ -75,7 +76,7 @@ print(min_count)
 # data = balanced_data
 
 # Mapper les catégories à partir des valeurs existantes de la colonne 'Category'
-#data['Category'] = data['Category'].map(theme_categories).fillna(data['Category'])
+# data['Category'] = data['Category'].map(theme_categories).fillna(data['Category'])
 # Convertir la colonne 'Dates' en format datetime
 data['Dates'] = pd.to_datetime(data['Dates'])
 # Créer de nouvelles colonnes pour la date et l'heure
@@ -95,8 +96,6 @@ data['Second'] = pd.to_datetime(data['Time'], format='%H:%M:%S').dt.second
 data.drop(['Date', 'Time'], axis=1, inplace=True)
 # Colonnes à encoder de façon ordinaire
 ordinal_cols = ['Category', 'DayOfWeek']
-
-
 
 # Créer un encodeur ordinal et appliquer la transformation
 encoder = OrdinalEncoder(cols=ordinal_cols).fit(data)
@@ -120,7 +119,6 @@ print(data.describe())
 print(data.info())
 print(data['Category'].unique())
 
-
 #### Deep Learning (régression multinomiale) ####
 
 # Sélection des colonnes pour les features (X) et la target variable (y)
@@ -132,25 +130,36 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_
 scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
+
 # Créer le modèle
 model = Sequential()
 model.add(Dense(4, input_dim=X_train.shape[1], activation='relu'))
-model.add(Dense(32, activation='relu'))
+model.add(Dropout(0.5))
+model.add(Dense(512, activation='relu'))
+model.add(Dropout(0.5))
+model.add(Dense(256, activation='relu'))
+model.add(Dropout(0.3))
+model.add(Dense(128, activation='relu'))
+model.add(Dropout(0.3))
 model.add(Dense(64, activation='relu'))
+model.add(Dropout(0.3))
 model.add(Dense(32, activation='relu'))
-model.add(Dense(64, activation='relu'))
-model.add(Dense(32, activation='relu'))
+model.add(Dropout(0.3))
+model.add(Dense(16, activation='relu'))
+model.add(Dropout(0.3))
 model.add(Dense(len(data['Category'].unique()), activation='softmax'))
 # Compiler le modèle
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 # Entraîner le modèle
-model.fit(X_train_scaled, pd.get_dummies(y_train), epochs=15, batch_size=32, validation_data=(X_test_scaled, pd.get_dummies(y_test)))
+model.fit(X_train_scaled, pd.get_dummies(y_train), epochs=2, batch_size=32,
+          validation_data=(X_test_scaled, pd.get_dummies(y_test)))
 
-#6,3,-122.406842913454,37.7980587205991,2009,3,19,0,48,0
+# 6,3,-122.406842913454,37.7980587205991,2009,3,19,0,48,0
 
 # Prédictions pour de nouvelles données personnalisées
 custom_data = np.array([
     [3, -122.4068, 37.7980, 19],
+    [3, -122.4608, 37.7122, 17]
 ])
 # Normaliser les données personnalisées
 custom_data_scaled = scaler.transform(custom_data)
@@ -159,10 +168,10 @@ predictions = model.predict(custom_data_scaled)
 print(predictions)
 # Affichage des prédictions (pourcentages de chance par catégorie)
 for i, category_probabilities in enumerate(predictions):
-    print(f"Pourcentage de la catégorie {i+1}:")
+    print(f"Pourcentage de la catégorie {i + 1}:")
     for j, probability in enumerate(category_probabilities):
         formatted_percentage = probability * 100.0
-        print(f"    Sous-catégorie {j+1}: {formatted_percentage:.2f}%")
+        print(f"    Sous-catégorie {j + 1}: {formatted_percentage:.2f}%")
 
 # Sauvegarder le modèle Keras
 # model.save('modele_criminalite.h5')
