@@ -1,4 +1,4 @@
-from models.models import Data
+from fast.models.models import Data
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -14,10 +14,140 @@ from sklearn.linear_model import LogisticRegression
 
 
 class iaManager:
-    def __init__(self):
-        pass
-
     def predictM(self, data: Data):
+        columns_deleted = ['Descript', 'Resolution', 'Address', 'PdDistrict']
+        data = data.drop(columns_deleted, axis=1)
+
+        # Les valeurs connues pour la suppression
+        # category_a_supprimer = 'WARRANTS'
+        x_a_supprimer = -120.5
+        y_a_supprimer = 90
+
+        # Supprimer les lignes où les valeurs correspondent aux valeurs connues
+        # data = data[~((data['Category'] == category_a_supprimer) & (data['X'] == x_a_supprimer) & (data['Y'] == y_a_supprimer))]
+        data = data[~((data['X'] == x_a_supprimer) & (data['Y'] == y_a_supprimer))]
+        print(data['Category'].unique())
+
+        # Créer un dictionnaire pour les nouvelles catégories
+        new_categories = {
+            'Person Crimes': ['OTHER OFFENSES', 'ASSAULT', 'RUNAWAY', 'KIDNAPPING', 'SUICIDE'],
+
+            'Property Crimes': ['LARCENY/THEFT', 'VEHICLE THEFT', 'BURGLARY', 'STOLEN PROPERTY', 'RECOVERED VEHICLE',
+                                'TRESPASS'],
+
+            'Sexual Crimes': ['PROSTITUTION', 'SEX OFFENSES FORCIBLE', 'SEX OFFENSES NON FORCIBLE',
+                              'PORNOGRAPHY/OBSCENE MAT',
+                              'SEX OFFENSES FORCIBLE', 'SEX OFFENSES NON FORCIBLE', ],
+
+            'Financial Crimes': ['FRAUD', 'BRIBERY', 'EMBEZZLEMENT', 'BAD CHECKS', 'FORGERY/COUNTERFEITING',
+                                 'EXTORTION'],
+
+            'Depencense Crimes': ['DRUNKENNESS', 'LIQUOR LAWS', 'DRIVING UNDER THE INFLUENCE', 'DRUG/NARCOTIC',
+                                  'DRUNKENNESS',
+                                  'LIQUOR LAWS'],
+
+            'Vehicle Crimes': ['DRIVING UNDER THE INFLUENCE', 'VEHICLE THEFT', 'RECOVERED VEHICLE',
+                               'DISORDERLY CONDUCT'],
+
+            'Family Crimes': ['FAMILY OFFENSES', 'MISSING PERSON', 'RUNAWAY', 'FAMILY OFFENSES', 'MISSING PERSON'],
+
+            'Society Crimes': ['VANDALISM', 'ROBBERY', 'WEAPON LAWS', 'ARSON', 'LOITERING', 'GAMBLING'],
+
+            'Miscellaneous': ['SUSPICIOUS OCC', 'SECONDARY CODES', 'TREA', 'NON-CRIMINAL', 'WARRANTS']
+        }
+
+        # Créer un mapping inverse pour les nouvelles catégories
+        reverse_mapping = {val: key for key, values in new_categories.items() for val in values}
+
+        # Ajouter une nouvelle colonne "New_Category" basée sur les nouvelles catégories
+        data['Category'] = data['Category'].map(reverse_mapping)
+
+        # Vérifier le résultat en affichant un échantillon de données
+        print(data.head())
+        print(data['Category'].unique())
+
+        # Organiser la dataframe en fonction de la nouvelle colonne "New_Category"
+        data = data.sort_values('Category')
+
+        # Compter le nombre d'éléments pour chaque catégorie
+        counts_per_category = data['Category'].value_counts()
+
+        # Trouver la taille de la catégorie la plus petite
+        min_count = counts_per_category.min()
+
+        # Sélectionner un nombre équilibré d'éléments aléatoires pour chaque catégorie (basé sur la taille de la catégorie la plus petite)
+        balanced_data = pd.DataFrame()
+        for category, count in counts_per_category.items():
+            category_data = data[data['Category'] == category].sample(min(count, min_count))
+            balanced_data = pd.concat([balanced_data, category_data])
+
+        # Enregistrer ce nouvel ensemble de données équilibré dans un fichier CSV
+        balanced_data.to_csv('sample_data/balanced_dataset.csv', index=False)
+
+        # Charger à nouveau les données à partir du fichier nouvellement créé
+        balanced_data = pd.read_csv('sample_data/balanced_dataset.csv')
+
+        # Ramdomiser les données
+        balanced_data = balanced_data.sample(frac=1).reset_index(drop=True)
+        print(min_count)
+
+        data = balanced_data
+
+        # Mapper les catégories à partir des valeurs existantes de la colonne 'Category'
+        # data['Category'] = data['Category'].map(theme_categories).fillna(data['Category'])
+
+        # Convertir la colonne 'Dates' en format datetime
+        data['Dates'] = pd.to_datetime(data['Dates'])
+
+        # Créer de nouvelles colonnes pour la date et l'heure
+        data['Date'] = data['Dates'].dt.date
+        data['Time'] = data['Dates'].dt.time
+
+        # Supprimer la colonne 'Dates' maintenant qu'elle n'est plus nécessaire
+        data.drop(columns=['Dates'], inplace=True)
+
+        # Convertir la colonne 'Date' en composantes de date séparées
+        data['Year'] = pd.to_datetime(data['Date']).dt.year
+        data['Month'] = pd.to_datetime(data['Date']).dt.month
+        data['Day'] = pd.to_datetime(data['Date']).dt.day
+
+        # Convertir la colonne 'Time' en composantes d'heure séparées
+        data['Hour'] = pd.to_datetime(data['Time'], format='%H:%M:%S').dt.hour
+        data['Minute'] = pd.to_datetime(data['Time'], format='%H:%M:%S').dt.minute
+        data['Second'] = pd.to_datetime(data['Time'], format='%H:%M:%S').dt.second
+
+        # Supprimer les colonnes d'origine 'Date' et 'Time'
+        data.drop(['Date', 'Time'], axis=1, inplace=True)
+
+        # Colonnes à encoder de façon ordinaire
+        ordinal_cols = ['Category', 'DayOfWeek']
+
+        # Créer un encodeur ordinal et appliquer la transformation
+        encoder = OrdinalEncoder(cols=ordinal_cols).fit(data)
+        data = encoder.transform(data)
+
+        # Enregistrer le nouveau fichier CSV sans modifier l'original
+        data.to_csv('sample_data/nouveau_fichier.csv', index=False)
+        # Filtrer les données pour inclure uniquement la catégorie 'Harassment'
+        larceny_theft_data = data[data['Category'] == 'Harassment']
+
+        # Créer un nuage de points avec la catégorie 'PROSTITUTION'
+        # fig = px.scatter(larceny_theft_data, x="X", y="Y", color="Category")
+        # fig.show()
+
+        # Vérifier s'il y a des valeurs manquantes (NaN) dans chaque colonne
+        missing_values = data.isnull().any()
+        data.isnull().sum()
+
+        # Afficher les colonnes contenant des valeurs manquantes (True) et le nombre de valeurs manquantes dans chaque colonne
+        print(missing_values)
+        print(data.isnull().sum())
+        print(data.head())
+        print(data.shape)
+        print(data.describe())
+        print(data.info())
+        print(data['Category'].unique())
+
         ####### Model 1 #######
         from sklearn.model_selection import cross_val_score, train_test_split
         from sklearn.ensemble import RandomForestClassifier
@@ -62,10 +192,14 @@ class iaManager:
         predicted_probabilities = clf.predict_proba(new_data)[0]
 
         categories_uniques = data['Category'].unique()
+
+        # Affichage des probabilités de chaque catégorie dans un tableau
         strings = []
-        # Affichage des probabilités de chaque catégorie
+
+        # un tableau de string qui contient les probabilités de chaque catégorie
         for i, category in enumerate(categories_uniques):
-            print(f"Prédiction de la catégorie {category} la plus probable : {predicted_probabilities[i] * 100:.2f}%")
+            strings.append(f"{category} : {predicted_probabilities[i]}")
+            print(f"{category} : {predicted_probabilities[i]}")
 
         return strings
 

@@ -4,3 +4,7 @@ pythonProject/sample_data
 .idea
 
 Model/sample_data/
+
+fast/ia/sample_data/
+
+fast/models/__pycache__/
